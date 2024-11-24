@@ -2,6 +2,7 @@ setwd("~/Desktop/shads")
 library(ape)
 library(vcfR)
 library(tidyverse)
+library(readxl)
 
 
 #preliminary data viewing with vcfR:

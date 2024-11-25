@@ -69,6 +69,45 @@ ggplot(snpschromo, aes(x = Chromosome, y = Variants)) +
 
 
 
+#################
+#trying to make a chromsomewide plot heterzygosity (nHet) from the tsv file 
+#https://cran.r-project.org/web/packages/RcppRoll/RcppRoll.pdf <-rollmean
+install.package ("RcppRoll")
+het <- read_tsv("heteroz.tsv")
+head(het)
+colnames(het)
+hetfilter <- het %>%
+  filter(!str_starts(CHR, "NW"))
+#dplyr sliding window for this. plot het (y-axs) along position (x axis)
+
+#trying to make windows and apply 
+View(hetfilter)
+het2 <- hetfilter %>%
+  group_by(POS) %>%
+  arrange(CHR) %>% # 
+  mutate(roll_mean_nHet = roll_mean(x = nHet, n = 5000, by = 5000, fill = NA, align = "center")
+ 
+
+# Remove NA values introduced by rolling mean
+het2 <- het2 %>%
+  filter(!is.na(roll_mean_nHet))
+
+# Scatterplot of rolling means - this is not working/ just looks horroble 
+ggplot(het2, aes(x = POS, y = roll_mean_nHet, color = CHR)) +
+  geom_line() +
+  labs(
+    x = "Genomic Position",
+    y = "Rolling Mean of Heterozygosity (nHet)",
+    title = "Scatterplot of Rolling Mean Heterozygosity"
+  ) +
+  theme_minimal()
+
+hetwindow <- roll_mean(hetfilter, n = 5000, weights = NULL, by = 5000, fill = numeric(0),
+          partial = FALSE, align = c("center"), normalize = TRUE,
+          na.rm = FALSE)
+
+
+
 
 
 

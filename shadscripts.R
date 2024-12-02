@@ -80,99 +80,90 @@ ggplot(snpschromo, aes(x = Chromosome, y = Variants)) +
     y = "Variants") + 
   theme(axis.text.x = element_text(angle = 45)) +
   theme(plot.title = element_text(hjust=0.5))
+ ### SNP DENSITY GOOD TO GO
 
-###########heterozygosity 
-het <- read_tsv("heteroz.tsv")
-View(het)
-head(het)
-colnames(het)
-hetfilter <- het %>%
-  filter(!str_starts(CHR, "NW")) %>%
-  arrange(CHR, POS) %>%
-  mutate(CHR = case_when(
-  CHR == "NC_014690.1" ~ "MT",
-  CHR == "NC_055957.1" ~ "01",
-  CHR == "NC_055958.1" ~ "02",
-  CHR == "NC_055959.1" ~ "03",
-  CHR == "NC_055960.1" ~ "04",
-  CHR == "NC_055961.1" ~ "05",
-  CHR == "NC_055962.1" ~ "06",
-  CHR == "NC_055963.1" ~ "07",
-  CHR == "NC_055964.1" ~ "08",
-  CHR == "NC_055965.1" ~ "09",
-  CHR == "NC_055966.1" ~ "10",
-  CHR == "NC_055967.1" ~ "11",
-  CHR == "NC_055968.1" ~ "12",
-  CHR == "NC_055969.1" ~ "13",
-  CHR == "NC_055970.1" ~ "14",
-  CHR == "NC_055971.1" ~ "15",
-  CHR == "NC_055972.1" ~ "16",
-  CHR == "NC_055973.1" ~ "17",
-  CHR == "NC_055974.1" ~ "18",
-  CHR == "NC_055975.1" ~ "19",
-  CHR == "NC_055976.1" ~ "20",
-  CHR == "NC_055977.1" ~ "21",
-  CHR == "NC_055978.1" ~ "22",
-  CHR == "NC_055979.1" ~ "23",
-  CHR == "NC_055980.1" ~ "24",
-  TRUE ~ CHR 
-))
+snpdens <- read_tsv("snpdens.tsv")
+str(snpdens)
+unique(snpdens$CHROM)
+snpdens$CHROM <- as.factor(snpdens$CHROM)
+any(is.na(snpdens$CHROM))
+snpdens <- as.data.frame(snpdens)
 
-#filter out the reads not aligned
-#dplyr sliding window for this. plot het (y-axs) along position (x axis)
-#trying to make windows and apply (was told to use roll_mean_)
-#roll_mean(x, n = 1L, weights = NULL, by = 1L, fill = numeric(0),
-         # partial = FALSE, align = c("center", "left", "right"), normalize = TRUE,
-         # na.rm = FALSE)
-
-View(hetfilter)
-het2 <- hetfilter %>%
-  group_by(CHR) %>%
-  mutate(roll_mean_nHet = roll_mean(x = nHet, n = 3000, fill = NA, align = "center")) %>%
-  filter(CHR != "MT")
-
-# Scatterplot of rolling means (one graph each chromosome separated)
-hetplot <- ggplot(het2, aes(x = CHR, y = roll_mean_nHet, color = CHR)) +
-  geom_line() +
-  scale_color_viridis_d(name = "Chromosome") + 
+snpdenchr <- snpdens %>%
+  filter(!str_starts(CHROM, "NW")) %>%
+  mutate(CHROM = case_when(
+    CHROM == "NC_014690.1" ~ "MT",
+    CHROM == "NC_055957.1" ~ "01",
+    CHROM == "NC_055958.1" ~ "02",
+    CHROM == "NC_055959.1" ~ "03",
+    CHROM == "NC_055960.1" ~ "04",
+    CHROM == "NC_055961.1" ~ "05",
+    CHROM == "NC_055962.1" ~ "06",
+    CHROM == "NC_055963.1" ~ "07",
+    CHROM == "NC_055964.1" ~ "08",
+    CHROM == "NC_055965.1" ~ "09",
+    CHROM == "NC_055966.1" ~ "10",
+    CHROM == "NC_055967.1" ~ "11",
+    CHROM == "NC_055968.1" ~ "12",
+    CHROM == "NC_055969.1" ~ "13",
+    CHROM == "NC_055970.1" ~ "14",
+    CHROM == "NC_055971.1" ~ "15",
+    CHROM == "NC_055972.1" ~ "16",
+    CHROM == "NC_055973.1" ~ "17",
+    CHROM == "NC_055974.1" ~ "18",
+    CHROM == "NC_055975.1" ~ "19",
+    CHROM == "NC_055976.1" ~ "20",
+    CHROM == "NC_055977.1" ~ "21",
+    CHROM == "NC_055978.1" ~ "22",
+    CHROM == "NC_055979.1" ~ "23",
+    CHROM == "NC_055980.1" ~ "24",
+    TRUE ~ CHROM 
+  )) %>%  filter(CHROM != "MT")
+snpplot <- ggplot(snpdenchr, aes(x = BIN_START, y = `VARIANTS/KB`, color = CHROM)) +
+  geom_col() +
+  scale_color_viridis_d(name = "CHROM") + 
   labs(
-    x = "Genomic Position",
-    y = "Rolling Mean of Heterozygosity (nHet)",
-    title = "Scatterplot of Rolling Mean Heterozygosity"
-  ) + theme_gray()
-print(hetplot)
-het
+      x = "Position", 
+      y = "Variant Density",
+      title = "Variant Density Across Genome") +
+  theme_bw () +
+  facet_wrap(~CHROM, scales = "free_x")
 
-#by position (use this one)
-hetplot2 <- ggplot(het2, aes(x = POS, y = roll_mean_nHet, color = CHR)) +
-  geom_line() +
-  scale_color_viridis_d(name = "Chromosome") + 
+print(snpplot)
+
+#Calculate mean from SNP density column, take take lowest 2.5 and highest 97.5 % 
+
+rowMeans(snpdenchr)
+str(snpdenchr)
+meansnps<- mean(snpdenchr$SNP_COUNT, na.rm = TRUE)
+print(meansnps) #81.92581 
+outliers <- quantile(snpdenchr$SNP_COUNT, probs = c(0.025, 0.975))
+print(outliers) #2.5% 6, 97.5% 162
+top_97_5 <- snpdenchr[snpdenchr$SNP_COUNT > outliers[2], ]
+top <- ggplot(top_97_5, aes(x = BIN_START, y = `VARIANTS/KB`, color = CHROM)) +
+         geom_col() +
+         scale_color_viridis_d(name = "CHROM") + 
+         labs(
+           x = "Position", 
+           y = "Variant Density",
+           title = "Top 97.5%") +
+         theme_bw () +
+         facet_wrap(~CHROM, scales = "free_x")
+
+bot_2.5 <- snpdenchr[snpdenchr$SNP_COUNT < outliers[1], ]
+bot <- ggplot(bot_2.5, aes(x = BIN_START, y = `VARIANTS/KB`, color = CHROM)) +
+  geom_col() +
+  scale_color_viridis_d(name = "CHROM") + 
   labs(
-    x = "Genomic Position",
-    y = "Rolling Mean of Heterozygosity (nHet)",
-    title = "Scatterplot of Rolling Mean Heterozygosity"
-  ) + theme_bw() +
-  facet_wrap(~ CHR, scales = "free_x")
-print(hetplot2)
-het
+    x = "Position", 
+    y = "Variant Density",
+    title = "Bottom 2.5%") +
+  theme_bw () +
+  facet_wrap(~CHROM, scales = "free_x")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#export top 97 and bottom 2.5 as csv files
+write.csv(top_97_5, "top_97_5.csv", row.names = FALSE)
+write.csv(bot_2.5, "bot_2_5.csv", row.names = FALSE)
 
 
 

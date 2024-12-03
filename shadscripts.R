@@ -4,6 +4,7 @@ library(vcfR)
 library(tidyverse)
 library(readxl)
 library(RcppRoll)
+fgfgf
 
 bobvcf2 <- read.vcfR("shad.filtered.ann.vcf.gz")
 

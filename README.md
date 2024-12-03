@@ -1,2 +1,2 @@
 # A.-sapidissima-Scripts
-Analyses for A. sapidissima comparative genomic project
+Cofe for analyses for A. sapidissima  genomic project

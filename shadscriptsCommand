@@ -1,0 +1,102 @@
+prefetch ${SRR} #Download .sra files 
+bwa index ${SRR} #Index reference genome 
+fasterqdump {$SRR} --split files #Convert short reads to fastq 
+fastq-dump --gzip --split-files ${SRR} #Convert mate pair libraries to fastq 
+ nxtrim \  #processing for mate-pair libraries
+        -1 ${SRR}_1.fastq.gz \ 
+        -2 ${SRR}_2.fastq.gz \ 
+        -a \ 
+        -l 50 \ 
+        --stdout | \ 
+fastp \ #Quality control and preprocessing of raw sequencing data  
+    --in1=${r1} \ 
+    --in2=${r2} \ 
+    --stdout \ 
+    --adapter_fasta=${adapters} \ 
+    --cut_front \ 
+    --cut_tail \ 
+    --cut_window_size=4 \ 
+    --cut_mean_quality=20 \ 
+    --qualified_quality_phred=20 \ 
+    --average_qual=20 \ 
+    --unqualified_percent_limit=30 \ 
+    --n_base_limit=5 \ 
+    --length_required=50 \ 
+    --low_complexity_filter \ 
+    --complexity_threshold=30 \ 
+    --overrepresentation_analysis \ 
+    --trim_poly_x \ 
+    --poly_x_min_len=10 \ 
+    --html=${out}.html \ 
+    --json=${out}.json \ 
+    --report_title="${out}" \ 
+    --thread=${threads} \ 
+    --out1 cleaned/${SRR}.finalclean_1.fq.gz \ 
+    --out2 cleaned/${SRR}.finalclean_2.fq.gz 
+bwa mem \ #Aligning libraries to reference genome 
+   -M \ 
+   -R "@RG\tID:${out}\tSM:${out}\tPL:illumina\tLB:run1" \ 
+   -t 16 \ 
+   $ref \ 
+   $r1 \ 
+   $r2 | \ 
+samtools sort \ 
+   -T ${out}.tmp \ 
+   -n \ 
+   -@ 16 \ 
+   - | \ 
+   samtools fixmate \ 
+      -@ 16 \ 
+      -m \ 
+      - - | \ 
+      samtools sort \ 
+         -T ${out}.tmp2 \ 
+         -O bam \ 
+         -@ 16 \ 
+         - | \ 
+         samtools markdup \ 
+             -T ${out}.tmp3 \ 
+             -O bam \ 
+             -@ 16 \ 
+             - ${out}.sorted.bam 
+samtools merge \ #Merging resulting bam files  
+        --threads 24 \ 
+        -o shad.merged.bam \ 
+        Path$(SRR)  \ 
+        Path$(SRR)   \     
+        Path${SRR} 
+samtools index shad.merged.bam #Indexing merged bam file 
+samtools stats -@ 24 shad.merged.bam > shad.merged.bamstats  #Generating bamstats file 
+bcftools \  #Calling SNPs from merged bam 
+        mpileup \ 
+        -C 50 \ 
+        -q 20 \ 
+        -Q 20 \ 
+        --threads 24 \ 
+        -Ou \ 
+        --ignore-RG \ 
+        --per-sample-mF \ 
+  --annotate FORMAT/AD,FORMAT/ADF,FORMAT/ADR,FORMAT/DP,FORMAT/SP,INFO/AD,INFO/ADF,INFO/ADR \ 
+        -f /${path} \ 
+        shad.merged.bam | \ 
+        bcftools \ 
+           call \ 
+           --threads 24 \ 
+           --annotate FORMAT/GQ,FORMAT/GP,INFO/PV4 \ 
+           -mv -Ou | \ 
+        bcftools \ 
+           filter \ 
+           --threads 24 \ 
+           -sFAIL -e'QUAL < 30 || INFO/MQ <= 30 || INFO/MQBZ < -9 || INFO/RPBZ < -5 || INFO/RPBZ > 5 || INFO/BQBZ < -5 || INFO/DP4[3]+INFO/DP4[4] <= 2' \ 
+           -g10 \ 
+           -G10 \ 
+           -Ov | \ 
+        bgzip -c > shad.vcf.gz 
+bcftools index --threads 24 shad.vcf.gz #index VCF 
+bcftools stats shad.vcf.gz > shad.SNPs.stats #Generate stats
+bcftools view -f 'PASS' -O v shad.vcf.gz | bgzip -c > shad.filtered.vcf.gz #Filter VCF
+bcftools stats -f "PASS" shad.filtered.vcf.gz > shad.filtered.SNPs.stats #Filter stats
+java -jar   -v aloSap \ #annotated VCF
+        shad.filtered.vcf.gz | \ 
+        bgzip -c > shad.filtered.vann.vcf.gzip 
+vcftools --gzvcf vcf.file --SNPDensity 20000 --out filename #Variant density 

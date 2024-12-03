@@ -1,38 +1,10 @@
 setwd("~/Desktop/shads/shadsprojectdata")
-library(ape)
-library(vcfR)
 library(tidyverse)
 library(readxl)
-library(RcppRoll)
-fgfgf
-
-bobvcf2 <- read.vcfR("shad.filtered.ann.vcf.gz")
-
-#chromR object 
-bobchromr <- create.chromR(bobvcf2, name = "CHROM", seq = NULL, ann = NULL, verbose = TRUE)
-
-
-#plot 1 first look
-plot(bobchromr) 
-
-#plot 2 a few filters 
-chromfilteredbob <- masker(bobchromr, min_QUAL = 1, max_DP = 50, min_MQ = 40,  max_MQ = 61)
-plot(chromfilteredbob)
-
-#plot 3 include variants 
-chromvariantsbob <- proc.chromR(chromfilteredbob, verbose=TRUE)
-plot(chromvariantsbob)
-
-#plot4 
-chromoqc(chromvariantsbob, dp.alpha = 66) 
-plot(chromoqc)
-
-
 
 #snp variants from samtools
 snpsxscaf <- read_xlsx("samtoolsdata.xlsx")
 View(snpsxscaf)
-
 # rename
 snpschromo <- snpsxscaf %>%
   mutate(Chromosome = case_when(
@@ -70,19 +42,22 @@ snpschromo$Chromosome <-factor(snpschromo$Chromosome,
           ))))
 
 str(snpschromo)
+#this looks good (laurens ggplot)
+ 
+ggplot(snpschromo, aes(x = Chromosome, y = Variants)) +  
+  geom_bar(stat = "identity", fill = "navy", color = "black") +  # Add black outline 
+  theme_classic() + 
+  scale_x_discrete(limits = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "MT")) + 
+  labs(title = "SNP Density", x = "Chromosome", y = "Variants") + 
+  theme( 
+    plot.title = element_text(hjust = 0.5, vjust = -3, size = 26),  # Lower title position and increase font size 
+    axis.title.x = element_text(size = 20),  # Increase x-axis title font size 
+    axis.title.y = element_text(size = 20),  # Increase y-axis title font size 
+    axis.text.x = element_text(size = 15),   # Increase x-axis text font size 
+    axis.text.y = element_text(size = 15)    # Increase y-axis text font size 
+  ) 
 
-#this looks good
-ggplot(snpschromo, aes(x = Chromosome, y = Variants)) +
-  geom_bar(stat = "identity", fill = "navy") +
-  theme_classic() +
-  labs(
-    title = "Variants along Chromosome",
-    x = "Chromosome",
-    y = "Variants") + 
-  theme(axis.text.x = element_text(angle = 45)) +
-  theme(plot.title = element_text(hjust=0.5))
- ### SNP DENSITY GOOD TO GO
-
+### SNP DENSITY GOOD TO GO
 snpdens <- read_tsv("snpdens.tsv")
 str(snpdens)
 unique(snpdens$CHROM)
@@ -165,6 +140,9 @@ bot <- ggplot(bot_2.5, aes(x = BIN_START, y = `VARIANTS/KB`, color = CHROM)) +
 #export top 97 and bottom 2.5 as csv files
 write.csv(top_97_5, "top_97_5.csv", row.names = FALSE)
 write.csv(bot_2.5, "bot_2_5.csv", row.names = FALSE)
+
+#Tara insert data 
+
 
 
 
